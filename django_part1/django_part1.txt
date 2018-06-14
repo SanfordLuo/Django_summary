@@ -1,0 +1,113 @@
+1=========虚拟环境下创建项目
+	终端：django-admin startproject 项目名称
+	pycharm中选择django创建项目
+	
+2=========项目运行
+	python manage.py runserver (ip端口，默认8000)
+	
+3=========setting.py 中的常用配置
+	[16]：BASE_DIR = 项目在磁盘上存在的目录路径
+	[26]：DEBUG = 是否开启调试模式，开发阶段True，上线后False
+	[107]: LANGUAGE_CODE = 'zh-hans'  # 语言
+	[109]: TIME_ZONE = 'Asia/Shanghai' # 时区
+	
+4==========静态文件的处理
+	在项目目录下建立文件夹static,在此文件夹里建文件夹来分类放静态文件(css,images,js)
+	静态文件的参数配置：
+		STATIC_URL = '/static/'   # 访问静态文件的URL前缀
+		STATICFILES_DIRS=[        # 存放查找静态文件的目录
+			os.path.join(BASE_DIR,'static')
+		]
+		
+	访问：http://127.0.0.1:8000/static/MV/unravel.mp4
+	
+	问题1：django如何确定请求的是静态文件
+		将请求路径与STATIC_URL进行匹配
+	问题2：django如何在磁盘上找到静态文件
+		将STATICFILES_DIRS指定的目录与请求文件路径进行拼接
+	问题3：Django 仅在调试模式下（DEBUG=True）能对外提供静态文件。
+	
+5==========创建子应用，django的视图存放在子应用中
+	#1 在pycharm下的终端创建子应用
+		python manage.py startapp 子应用名
+		
+	#2 在setting.py中安装子应用
+		INSTALLED_APPS = [
+		...
+		'users.apps.UsersConfig',]
+		
+	#3 在应用的views.py中定义视图函数
+		def index(request):
+			return HttpResponse('hello django')
+		
+	#4 在应用中创建urls.py:用于配置应用中的路由
+		from django.conf.urls import url
+		from . import views
+		#列表名称的单词是固定的，不能改
+		urlpatterns=[
+		# url(路径, 视图)
+		# url('正则表达式',views.视图函数名)
+			url(r'^index$',views.index),
+		]
+	#5 将应用的路由添加到总路由中
+		from django.conf.urls import url, include
+		urlpatterns = [
+			# url(路径，路由)
+			url('^users/',include('users.urls')),
+		]
+	#6 访问：http://127.0.0.1:8000/users/index
+	
+6==============反解析
+	解析：根据请求地址，进行路由规则匹配，找到视图函数
+	反解析：根据视图函数生成一个url地址，users/index
+	#1 在根级(namespace可以修改) url('^users/', include('users.urls', namespace='userss')),
+	#2 在应用级(name名字可以修改) url(r'^index2$', views.index, name='indexx'),
+	#3 在应用级views中  def index2(request):
+							url_str = reverse('userss:index')
+							return HttpResponse(url_str)    
+	#4 启动地址 http://127.0.0.1:8000/users/index2
+	#5 应用场景:重定向，超链接
+	
+7==============获取请求参数问题
+	#1 在路由规则中提取参数(路径中) http://127.0.0.1:8000/users/show/10/100
+		#定义路由提取数据
+		url(r'^show/(\d+)/(\d+)$',views.show),#第一个参数赋给a，第二个参数赋给b
+		----url(r'^show/(?P<b>\d+)/(?P<a>\d+)$',views.show),#指定赋值
+		# 在视图函数中接收参数
+		def show(request, a, b):
+			return HttpResponse("%s---%s" % (a, b))
+	#2 查询字符串(不区分请求方式) # http://127.0.0.1:8000/users/get1?a=1&a=2&c=python
+		def get1(request):
+			dict1 = request.GET      # <class 'django.http.request.QueryDict'>
+			a = dict1.getlist('a')   # 键重复时使用，返回列表
+			b = dict1.get('b')      # 键不重复时使用
+			c = dict1.get('c')
+			return HttpResponse('%s---%s---%s' % (a, b, c))
+		#注意：只要参数出现在地址中，使用?***格式，就使用request.GET属性获取与请求方式无关
+	#3 请求体参数：请求体中的表单
+		关闭默认的CSRF保护，
+		<form method='post'></form>
+		注意：只适用于post请求方式
+		视图函数中接收：dict2 = request.POST
+	#4 请求体参数：非表单，现在通用json格式数据:put-raw-json
+		{
+		"a":10,
+		"b":20,
+		"c":"python"
+		}
+		视图函数中接收:	json_data = request.body.decode()
+				dict3 = json.loads(json_data)
+		问：在python中如何将str转换成dict
+		答：json
+			方法loads()将字符串转换成字典
+			方法dumps()将字符转换成字符串
+		注意：在定义json时，尽量使用双引号
+
+8========响应对象，返回json数据
+	def json(request):
+		return JsonResponse({'a':10,'b':'hello'})
+	
+
+
+
+	
