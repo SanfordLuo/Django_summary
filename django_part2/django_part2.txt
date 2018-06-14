@@ -1,0 +1,66 @@
+1===========状态保持-cookie
+	在浏览器中,以键-值的格式存储
+	基于域名安全,不同域名的cookie是不能互相访问的
+	浏览器会自动将cookie信息包含在请求头中发给服务器
+	默认过期时间：关闭浏览器时
+	
+	写入cookie_set视图函数：resoponse.set_cookie(键,值,max_age=过期时间)
+	读取cookie_get视图函数：name = request.COOKIES.get(键)
+							return HttpResponse(name)
+	删除cookie_del视图函数：response.delete_cookie(键)
+
+2===========状态保持-session
+	#1 安装扩展：pip install django-redis
+	#2 settings中的MIDDLEWARE中默认启动session,
+		在settings中配置django的缓存，设置session的存储方案
+	以键-值的格式存储
+	#3 写入session_set视图函数: request.sesison[键]=值
+	#4 读取session_get视图函数: name = request.session.get(键)
+								request.session.set_expiry(3600)
+								return HttpResponse(you_name)
+	#5 删除session_del视图函数：del request.session['键']
+	默认过期时间是：2周
+	session依赖于cookie
+
+3==========类试图使用
+	好处：代码可读性好，可以将不同的请求方式定义成不同的函数，但可以共用同一个请求地址
+	#1 定义类，继承View(继承自django.views.View)
+    #2 在类中定义函数：函数名为请求方式的小写
+	#3 注册类视图路由：url('^RegisterView$', views.RegisterView.as_view())
+	
+4==========类视图使用装饰器
+	在decorators.py 中定义装饰器
+	#0 def register(f):
+		def fun(*args, **kwargs):
+			print("-----自定义装饰器被调用")
+			return f(*args, **kwargs)
+		return fun
+	#1 直接在类视图中的函数上添加装饰器
+		在decorators.py 中定义装饰器(见上0)
+		导入 from . import decorators
+		类里的函数前加 @decorators.register
+	#2 在定义的类上添加装饰器
+		导入 from django.utils.decorators import method_decorator
+						(装饰器名称,name='实例方法的名称')--dispatch(全部)
+		类上加 @method_decorator(decorators.register, name='dispatch')
+	#3 (不推荐使用)可以使用装饰器的原生语法：装饰器(函数)
+	#4 (了解)使用多继承扩展类***Mixin
+	
+=======================中间件(1.类似于装饰器；2.定义类(了解))
+	在middleware.py 中定义中间件
+	#0 def my_middleware(view_fun):
+		def func1(*args, **kwargs):
+			print("----视图执行前处理的代码")
+			response = view_fun(*args, **kwargs)
+			print("----视图执行后处理的代码")
+			return response
+		return func1
+	#1 注册：settings.py中MIDDLEWARE['users.middleware.my_middleware',]
+	#2 多个中间件执行顺序：
+		以视图函数为分界
+		视图执行前按注册顺序由上向下
+		视图执行后按注册顺序由下向上
+	#3 CSRF中间件
+		将token保存在session或cookie中
+		请求为POST等请求时，从请求报文中获取token，并从存储中获取token
+		将两个token进行对比
