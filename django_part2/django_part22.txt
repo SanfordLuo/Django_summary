@@ -63,4 +63,4 @@
 	#3 CSRF中间件
 		将token保存在session或cookie中
 		请求为POST等请求时，从请求报文中获取token，并从存储中获取token
-		将两个token进行对比
+		将两个token进行对比。
