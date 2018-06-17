@@ -1,0 +1,150 @@
+1=========模板使用
+	#1 在项目中创建文件夹templates(框架默认已建)
+	   在settings.py配置文件中修改TEMPLATES配置项的DIRS值(框架默认已好)
+	#2 在templates文件夹里创建模板文件index.html
+		在模板中添加语法：<h1>{{ city }}</h1>  # {{变量名}}:字母,数字,下划线,点组成
+	#3 模板渲染：定义视图函数,添加到urls.py中
+		from django.template import loader
+		def index(request):
+			template = loader.get_template('index.html')  # 获取模板
+			context = {'city': '北京'}
+			return HttpResponse(template.render(context))  # 渲染模板
+		or:::
+		from django.shortcuts import render
+		def index(request):
+			context = {'city': '北京'}
+			return render(request, 'index.html', context)
+		注：context内存放键值对
+			{{ my_dict.name }}   # context内的字典的取值
+			{{ my_list.2 }}   # context内的列表元素的取值(根据索引)
+
+2========数据库准备：Django默认使用sqlite数据库
+	#1 使用Mysql数据库，首先需要安装驱动程序
+		pip install PyMySQL
+	#2 让Django的ORM能以mysqldb的方式来调用PyMySql:在同名子目录的__init__中添加语句
+		from pymysql import install_as_MySQLdb
+		install_as_MySQLdb()
+	#3 修改DATABASES的配置信息
+		DATABASES = {
+			'default': {
+				'ENGINE': 'django.db.backends.mysql',
+				'HOST': '127.0.0.1',  # 数据库主机
+				'PORT': 3306,  # 数据库端口
+				'USER': 'root',  # 数据库用户名
+				'PASSWORD': 'mysql',  # 数据库用户密码
+				'NAME': 'django_demo'  # 数据库名字
+			}
+		}
+	#4 在MySQL中创建数据库
+		create database django_demo default charset=utf8;
+	#5 创建应用booktest,在models.py文件中定义模型类
+		from django.db import models
+		
+		# 定义图书模型类BookInfo
+		class BookInfo(models.Model):
+			...
+			属性名 = models.字段类型(选项)
+			...
+			# 自定义表信息，Meta是固定的
+			class Meta:
+			db_table = 'tb_book' # 定义表名(未定义时默认：小写app应用名_小写模型类名)
+			verbose_name = '图书'  # 在admin站点中显示的名称
+		
+		# 定义英雄模型类HeroInfo
+		class HeroInfo(models.Model):
+			...
+			# 外键：参数为类的名称
+			book = models.ForeignKey('BookInfo')
+			# models.Foreinkey()一对多
+			# models.OneToOneField一对一
+			# models.ManyToManyField多对多
+			#隐含属性：book_id
+			#book代表一个BookInfo类型的对象
+			#book_id代表某个对象的主键值
+			#默认创建的主键列属性为id，可以使用pk代替
+	#6 数据库迁移
+		python manage.py makemigrations   # 生成迁移文件
+		python manage.py migrate     # 同步到数据库中(模板类如果属性改变，就需要同步)
+	#7 在数据库中添加数据
+		insert into 表名(属性名1,属性名2...) values
+		(对应值1，对应值2...)
+
+3===========数据库操作
+	#1 增：在视图类里定义两个方法
+		class AddView(View):
+			def get(self,request)
+				return render(request,'add.html')
+			def post(self,request)
+				# 确定根据哪些属性增加
+				dict1 = request.POST
+				title = dict1.get('title')
+				pub_date = dict1.get('pub_date')
+				# 通过创建模型类对象，执行对象的save()方法保存到数据库中
+				book = BookInfo()
+				book.title = title
+				book.pub_date = datetime.strptime(pub_date, '%Y-%m-%d')
+				book.save()
+				
+				return redirect('/')  # 返回主页
+	#2 改
+		class EditView(View):
+			def get(self, request, pk):
+				# 第一个pk表示类BookInfo中的属性的名称,表示主键
+				# 第二个pk表示视图函数接收的参数pk
+				book = BookInfo.objects.get(pk=pk)
+				context = {'book': book}
+				return render(request, 'edit.html', context)
+			def post(self, request, pk):
+				...获取要修改的属性值
+				# 修改数据
+				book = BookInfo.objects.get(pk=pk)
+				book.title = title
+				book.pub_date = datetime.strptime(pub_date, '%Y-%m-%d')
+				book.save()
+	3# 删
+		class DeleteView(View):
+			def get(self, request, pk):
+				...
+			def post(self, request, pk):
+				# 删除
+				book = BookInfo.objects.get(pk=pk)
+				book.delete()
+	4# 一般查询
+		filter(过滤条件) 过滤出多个结果
+		exclude(过滤条件) 排除掉符合条件剩下的结果
+		get(过滤条件) 过滤单一结果
+		过滤条件：属性名__比较运算符=值
+		比较运算符：exact(表判断),contains(包含),startswith,endswith,in(包含在),gt(大于),gte(大于等于),lt(小于),lte(小于等于)
+		year、month、day、week_day、hour、minute、second：对日期时间类型的属性进行运算
+		F(属性名)实现属性间比较：BookInfo.objects.filter(bread__gte=F('bcomment'))
+		Q(属性名__运算符=值)实现逻辑与或非：BookInfo.objects.filter(Q(bread__gt=20) | Q(pk__lt=3))
+		Avg,Count,Max,Min,Sum:BookInfo.objects.aggregate(Sum('属性名'))
+		set与非set:
+			已知book对象，获取所有对应的英雄对象，使用book.heroinfo_set.all()
+			已知英雄的条件，查询图书对象，使用heroinfo__属性__运算符=值
+	
+	5# 查询集QuerySet：
+		blist = BookInfo.objects.all()
+		context = {
+			'blist': blist
+		}
+		return render(request, 'index.html', context)
+		#########
+		all()：返回所有数据。
+		filter(条件)：返回满足条件的数据。
+		exclude(条件)：返回满足条件之外的数据。
+		order_by(属性)：根据属性对结果进行升序(-降序)。
+		查询集两大特性：惰性，缓存
+		优点：尽量减少与数据库交互的次数
+		使用场景：迭代，判断，序列化
+
+4===============管理器
+	在每个模型类中，默认有一个管理器，名称为objects
+	django支持开发人员自定义管理器
+	一旦自定义管理器，则不再有默认管理器objects
+	book=BookInfo.objects.create(属性)
+	book=BookInfo()
+	book.**=**
+	book.save()
+			
+		
