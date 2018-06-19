@@ -1,0 +1,6 @@
+1. Admin站点的基本设置
+2. Admin站点的基本操作
+3. resf设计接口规范
+4. RESTful设计: Get/books/...
+5. django实现RESTful
+6. 序列化与反序列化
