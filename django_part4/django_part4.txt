@@ -1,0 +1,127 @@
+1=============Admin站点的基本设置
+	#1 数据准备
+		使用上个项目的模板，以及数据库
+	#2 创建超级管理员
+		pycharm下的终端输入指令
+		python manage.py createsuperuser
+	#3 进入admin页面，登录。
+	#4 在应用中的admin.py文件中注册模型类(使模型显示在后台的站点管理)
+		admin.site.register(模型类，定制类)
+	#5 主页英文名更改中文名
+		#应用名的修改：在app.py中添加属性
+			verbose_name='中文名'
+		#模型类名的修改：在models.py中的Meta类里添加属性
+			verbose_name='中文名'
+			verbose_name_plural=verbose_name   # 复数
+		#模型类中属性名的修改：在属性对象的参数中添加
+			verbose_name='中文名'
+		#列表页面某个类的对象转成字符串：在模型类里重写__str__函数：
+			def __str__(self):
+				return self.title(name)  (模型类里的属性名)
+	#6 调整站点显示信息
+		在admin.py文件中添加信息
+		admin.site.site_header = '以飞书屋'
+		admin.site.site_title = '以飞书屋MIS'
+		admin.site.index_title = '欢迎使用以飞书屋MIS'
+
+2=============Admin站点的基本操作
+	#1 定制类：自定义管理后台：在管理后台显示想要的列表页、修改页、增加页的显示效果
+		#在admin.py自定义类，继承于admin.MOdelAdmin
+		class BookInfoAdmin(admin.ModelAdmin):
+		#使用定制类：在admin.py中：admin.site.register(模型类，定制类)
+	#2 列表页的选项(在定制类中操作)
+		# list_per_page = 10 -----分页时每页显示的条数
+		# actions_on_top = True -----动作在顶部显示,False不在顶部显示，默认为True。
+		# actions_on_bottom = True -----动作在底部显示,False不在底部显示，默认为False。
+		# list_display = ['id', 'title', 'pub_date', 'bpub_date']--表格中要显示的内容(属性名,自定义方法名)
+			# model中的模型类自定义方法：
+			def bpub_date(self):
+				return self.pub_date.strftime('%Y-%m-%d')
+			bpub_date.short_description = '自定义日期'   # 方法字段在admin中显示的标题
+			bpub_date.admin_order_field = 'id'  #根据属性id排序，自定义方法不能排序
+		list_filter = ['book','gender']：右侧快速过滤
+		search_fields = ['name','content']：顶部搜索框
+	#3 编辑页的选项(在定制类中操作)
+		# 指定可编辑的属性：fields=['title','pub_date']
+		# 分组显示：	fieldsets = (
+							('必填项', {'fields': ('title', 'pub_date')}),
+							('可填项', {'fields': ('bread', 'comment')}),
+						)
+							
+		# 关联对象，嵌入类：在一对多的关系中，可以在一端编辑多端对象：
+			# TabularInline:表格形式嵌入 StackedInline:块形式嵌入
+			class HeroInfoStackInline(admin.StackedInline):
+				model = HeroInfo  # 要编辑的对象
+				extra = 1  # 附加编辑的数量
+			#在一端添加嵌入类
+	#4 上传文件
+		# 保存到:media/booktest/文件名
+		# 模型类中添加属性字段（再添加到admin定制类中）(添加字段后需要数据库迁移)
+		face = models.ImageField(upload_to='booktest',null=True,blank=True)
+		#在配置文件中添加配置
+			STATICFILES_DIRS = [
+				# 开发项目时使用的静态文件
+				os.path.join(BASE_DIR, 'static'),
+				# 项目运行时用户上传的图片
+				os.path.join(BASE_DIR, 'media'),
+			]
+			MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+3==============================REST
+	#1 前后端不分离：前端页面看到的效果都是由后端控制，由后端渲染页面或重定向
+			也就是后端需要控制前端的展示，前端和后端的耦合度很高；适合纯网页应用。
+		前后端分离：后端仅返回前端所需数据，不再控制前端的效果。由前端自己决定。
+			耦合度相对较低。后端开发的每个视图称为接口，前端访问接口来对数据增删改查
+	# API接口：http协议的url路径，通过请求这个路径，传递参数，获取数据
+	# REST是一种设计接口的规范，而不是一种代码的编写方式(url地址命名的规范)
+	# API接口是符合REST规范的，是标准的RESTful接口
+	非REST的url：http://.../queryGoods?id=1001&type=t01
+	REST的url: http://.../t01/goods/1001
+
+4==============================RESTful设计: Get/books/...
+		#1 路径url地址：
+			不能包含动词、名词与数据库表名对应、建议使用复数形式
+		#2 对于资源的具体操作类型，由HTTP动词表示
+			GET（select）：从服务器取出资源（一项或多项）。
+			POST（insert）：在服务器新建一个资源。
+			PUT（update）：在服务器更新资源（客户端提供改变后的完整资源）。
+			DELETE（delete）：从服务器删除资源。
+			-PATCH（update）：在服务器更新(更新)资源（客户端提供改变的属性）。
+			-HEAD：获取资源的元数据。
+			-OPTIONS：获取信息，关于资源的哪些属性是客户端可以改变的
+		#3 数据操作的格式,请求和返回均为json
+		
+5==============================django实现RESTful
+	#1 写一套支持图书数据增删改查的REST API接口，来理解REST API的开发。
+		在此案例中，前后端均发送JSON格式数据
+	#2 在开发REST API接口时视图中做的最主要有三件事：
+		将请求的数据（如JSON格式）转换为模型类对象
+		操作数据库
+		将模型类对象转换为响应的数据（如JSON格式）
+	#3 总结
+		将数据库数据序列化为前端所需要的格式，并返回；
+		将前端发送的数据反序列化为模型类对象，并保存到数据库中。
+	#4 见代码
+	
+6==============================序列化与反序列化
+	一种对于数据的操作，将数据进行格式转换
+	序列化操作：将python类型转换成json
+	反序列化操作：将json转换成python类型
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
