@@ -1,0 +1,5 @@
+1. DRF
+2. 定义Serializer序列化器
+3. 序列化操作
+4. 反序列化操作
+5. 模型类序列化器ModelSerializer
