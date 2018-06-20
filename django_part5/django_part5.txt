@@ -1,0 +1,100 @@
+1 ==============================DRF
+	提供的功能：1.序列化 2.视图 3.路由
+	#1 安装DRF:  pip install djangorestframework
+	#2 添加rest_framework应用:  'rest_framework',
+	#3 新建serializers.py用于创建序列化器
+		class BookInfoSerializer(serializers.ModelSerializer):
+			class Meta:
+				model = BookInfo  --model指明该序列化器处理的数据字段从模型类BookInfo参考生成
+				fields = '__all__' --fields 指明该序列化器包含模型类中的哪些字段，'__all__'指明包含所有字段
+	#4 编写视图
+		class BookViewSet(ModelViewSet):
+			queryset = BookInfo.objects.all()  --queryset 指明该视图集在查询数据时使用的查询集
+			serializer_class = BookInfoModelSerializer  --serializer_class 指明该视图在进行序列化或反序列化时使用的序列化器
+	#5 定义路由
+		from rest_framework.routers import DefaultRouter
+		router = DefaultRouter()  -----可以处理视图的路由器
+		router.register('book', views.BookViewSet) -----向路由器中注册视图集
+		urlpatterns += router.urls  -----将路由器中的所以路由信息追到到django的路由列表中
+ 
+2 ===============定义Serializer序列化器
+	# 定义方法：在serializers.py中定义类，继承自rest_framework.serializers.Serializer。
+		class BookInfoSerializer(serializers.Serializer):
+			属性名(同model中一致) = serializers.字段类型(laber='汉化名',参数名称，)
+	# 创建Serializer对象	
+		Serializer(instance=None, data=empty, **kwarg)
+		1）用于序列化时，将模型类对象传入instance参数
+		2）用于反序列化时，将要被反序列化的数据传入data参数
+
+3 ===============序列化操作
+	#1 将python类型对象转换成字典：
+		1.查询对象
+		2.构造序列化器的对象
+			说明：如果查询结果包含多个对象，则指定many=True
+		3.调用序列化器的对象属性data获取序列化后的字典
+	# 单一对象的序列化 views里视图函数def hero(request):
+	    hero1 = HeroInfo.objects.get(pk=1)  # 查询对象
+		hero_serializer = HeroInfoSerializer(hero1) # 创建序列化对象，以对象为参数
+		hero_dict = hero_serializer.data  # 调用属性data返回序列化的结果
+		print(hero_dict)  # {'name': '郭靖', 'id': 1, 'content': '降龙十八掌'}
+		return JsonResponse({'hero_dict': hero_dict})  # 返回浏览器json格式
+	# 多对象的序列化
+	    hlist = HeroInfo.objects.filter(book_id=1)
+		hero_serializer = HeroInfoSerializer(hlist, many=True)
+		hlist2 = hero_serializer.data
+		return JsonResponse({'hlist': hlist2})
+	#2 对于关联属性进行输出的方案：在serializers.py文件
+		注意：指定read_only=True
+		# 1.以主键的形式输出  book = serializers.PrimaryKeyRelatedField(read_only=True)
+		# 2.以字符串的形式输出  book = serializers.StringRelatedField(read_only=True)
+		# 3.以超链接的形式输出  book = serializers.HyperlinkedRelatedField(read_only=True, view_name='booktest:book2')
+		# 4.指定对象的某个属性输出 book = serializers.SlugRelatedField(read_only=True, slug_field='pub_date')
+		# 5.指定关联对象的序列化器输出  book = BookInfoSerializer(read_only=True)
+		# 6.自定义输出方案   先自定义类，再 book = BookRelatedField(read_only=True)
+		说明：如果关联属性包含多个对象，则指定many=True
+		
+4 =======================反序列化操作：将json接收 转换成字典
+	#1 验证
+		1.字段的类型
+		2.必填验证，默认required为True
+			特例：default,read_only
+			如果想不传此数据，可以设置required=False
+		3.定义方法，验证某个属性
+			def validate_属性名称(self,attr):
+				attr表示对应的属性
+				pass
+		4.多属性验证
+			def validate(self,attrs):
+				attrs表示属性的字典
+				pass
+		5.定义类型时可以指定validators参数，指向验证方法
+	# 验证某个属性：在serializers.py中定义方法，再在views里进行反序列化操作(见代码)
+		def validate_name(self, attr):
+			if not attr.startswith('张'):
+				raise serializers.ValidationError('英雄必须姓张')
+			return attr
+	# 验证多个属性：在serializers.py中定义方法，再在views里进行反序列化操作(见代码)
+		def validate(self, attrs):
+			bread = attrs.get('bread')
+			comment = attrs.get('comment')
+			if bread and comment:
+				if bread < comment:
+					raise serializers.ValidationError('阅读量必须大于评论量')
+			return attrs
+	#2 保存：见代码
+		调用：save()
+		#增加：BookInfoSerializer(data=json)==>save()
+        #修改：BookInfoSerializer(book,data=json)==>save()
+		定义create()：添加
+		定义update()：修改
+
+5 ==================模型类序列化器ModelSerializer ：具体见代码
+	如果序列器是与模型类对应的，则推荐继承自这个类，代码更简单
+	Serializer：不同模型类对应
+	ModelSerializer：与模型类对应
+	隐藏的属性需要单独定义
+	对于create()、update()方法不需要定义，直接调用save()方法就可以完成保存
+
+
+	
+	
